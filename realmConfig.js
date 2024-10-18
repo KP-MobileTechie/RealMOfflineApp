@@ -1,44 +1,53 @@
 import Realm from 'realm';
+import { ObjectId } from 'bson';
 
-// Define the UserList schema with _id as the primary key
+// Define the UserList schema for storing user names
 const UserListSchema = {
     name: 'UserList',
     properties: {
         _id: 'objectId',  // MongoDB's ObjectId type for unique identification
-        name: 'string',
+        name: 'string',  // The name property we are saving
     },
     primaryKey: '_id',
 };
 
 const app = new Realm.App({ id: "application-0-brmbmgq" }); // Replace with your MongoDB Realm App ID
 
-async function openRealm() {
-    const user = await app.logIn(Realm.Credentials.anonymous()); // Anonymous login
-
-    const config = {
+const openRealm = async (isOnline) => {
+    let config = {
         schema: [UserListSchema],
-        sync: {
-            user: user,
-            flexible: true, // Enable flexible sync
-            initialSubscriptions: {
-                update: (subs, realm) => {
-                    subs.add(realm.objects("UserList"));
-                },
-            },
-            error: (err) => {
-                console.log('Sync error:', err); // Log any sync errors
-            },
-            downloadBeforeOpen: true, // Ensure data is downloaded before opening
-        },
     };
 
+    if (isOnline) {
+        // Sync config for online mode
+        const user = await app.logIn(Realm.Credentials.anonymous());
+        config = {
+            ...config,
+            sync: {
+                user: user,
+                flexible: true,
+                initialSubscriptions: {
+                    update: (subs, realm) => {
+                        subs.add(realm.objects("UserList"));
+                    },
+                },
+                downloadBeforeOpen: true,
+            },
+        };
+    } else {
+        // Offline mode config
+        config = {
+            ...config,
+            path: 'local.realm',  // Use a local file for offline mode
+        };
+    }
+
     try {
-        // Open the Realm with sync enabled
         return await Realm.open(config);
     } catch (error) {
-        console.error('Error opening realm with sync:', error);
+        console.error('Error opening realm:', error);
         throw error;
     }
-}
+};
 
-export default openRealm;
+export { openRealm };
